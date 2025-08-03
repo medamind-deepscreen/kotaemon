@@ -16,7 +16,8 @@ from theflow.settings import settings
 
 from kotaemon.base import Document, Param, RetrievedDocument
 
-from ..pipelines import BaseFileIndexRetriever, IndexDocumentPipeline, IndexPipeline
+from ..base import BaseFileIndexRetriever
+from ..pipelines import IndexDocumentPipeline, IndexPipeline
 from .visualize import create_knowledge_graph, visualize_graph
 
 try:

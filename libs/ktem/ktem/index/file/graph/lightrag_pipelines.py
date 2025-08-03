@@ -23,7 +23,7 @@ from theflow.settings import settings
 from kotaemon.base import Document, Param, RetrievedDocument
 from kotaemon.base.schema import AIMessage, HumanMessage, SystemMessage
 
-from ..pipelines import BaseFileIndexRetriever
+from ..base import BaseFileIndexRetriever
 from .pipelines import GraphRAGIndexingPipeline
 from .visualize import create_knowledge_graph, visualize_graph
 
