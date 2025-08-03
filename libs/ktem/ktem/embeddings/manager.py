@@ -53,29 +53,9 @@ class EmbeddingManager:
                     self._models["default"] = self._models[item.name]
 
     def load_vendors(self):
-        from kotaemon.embeddings import (
-            AzureOpenAIEmbeddings,
-            FastEmbedEmbeddings,
-            LCCohereEmbeddings,
-            LCGoogleEmbeddings,
-            LCHuggingFaceEmbeddings,
-            LCMistralEmbeddings,
-            OpenAIEmbeddings,
-            TeiEndpointEmbeddings,
-            VoyageAIEmbeddings,
-        )
+        from kotaemon.embeddings import OpenAIEmbeddings
 
-        self._vendors = [
-            AzureOpenAIEmbeddings,
-            OpenAIEmbeddings,
-            FastEmbedEmbeddings,
-            LCCohereEmbeddings,
-            LCHuggingFaceEmbeddings,
-            LCGoogleEmbeddings,
-            LCMistralEmbeddings,
-            TeiEndpointEmbeddings,
-            VoyageAIEmbeddings,
-        ]
+        self._vendors = [OpenAIEmbeddings]
 
     def __getitem__(self, key: str) -> BaseEmbeddings:
         """Get model by name"""

@@ -172,62 +172,6 @@ if OPENAI_API_KEY:
         "default": IS_OPENAI_DEFAULT,
     }
 
-VOYAGE_API_KEY = config("VOYAGE_API_KEY", default="")
-if VOYAGE_API_KEY:
-    KH_EMBEDDINGS["voyageai"] = {
-        "spec": {
-            "__type__": "kotaemon.embeddings.VoyageAIEmbeddings",
-            "api_key": VOYAGE_API_KEY,
-            "model": config("VOYAGE_EMBEDDINGS_MODEL", default="voyage-3-large"),
-        },
-        "default": False,
-    }
-    KH_RERANKINGS["voyageai"] = {
-        "spec": {
-            "__type__": "kotaemon.rerankings.VoyageAIReranking",
-            "model_name": "rerank-2",
-            "api_key": VOYAGE_API_KEY,
-        },
-        "default": False,
-    }
-
-if config("LOCAL_MODEL", default=""):
-    KH_LLMS["ollama"] = {
-        "spec": {
-            "__type__": "kotaemon.llms.ChatOpenAI",
-            "base_url": KH_OLLAMA_URL,
-            "model": config("LOCAL_MODEL", default="qwen2.5:7b"),
-            "api_key": "ollama",
-        },
-        "default": False,
-    }
-    KH_LLMS["ollama-long-context"] = {
-        "spec": {
-            "__type__": "kotaemon.llms.LCOllamaChat",
-            "base_url": KH_OLLAMA_URL.replace("v1/", ""),
-            "model": config("LOCAL_MODEL", default="qwen2.5:7b"),
-            "num_ctx": 8192,
-        },
-        "default": False,
-    }
-
-    KH_EMBEDDINGS["ollama"] = {
-        "spec": {
-            "__type__": "kotaemon.embeddings.OpenAIEmbeddings",
-            "base_url": KH_OLLAMA_URL,
-            "model": config("LOCAL_MODEL_EMBEDDINGS", default="nomic-embed-text"),
-            "api_key": "ollama",
-        },
-        "default": False,
-    }
-    KH_EMBEDDINGS["fast_embed"] = {
-        "spec": {
-            "__type__": "kotaemon.embeddings.FastEmbedEmbeddings",
-            "model_name": "BAAI/bge-base-en-v1.5",
-        },
-        "default": False,
-    }
-
 # additional LLM configurations
 KH_LLMS["claude"] = {
     "spec": {
@@ -271,40 +215,6 @@ KH_LLMS["mistral"] = {
     },
     "default": False,
 }
-
-# additional embeddings configurations
-KH_EMBEDDINGS["cohere"] = {
-    "spec": {
-        "__type__": "kotaemon.embeddings.LCCohereEmbeddings",
-        "model": "embed-multilingual-v3.0",
-        "cohere_api_key": config("COHERE_API_KEY", default="your-key"),
-        "user_agent": "default",
-    },
-    "default": False,
-}
-KH_EMBEDDINGS["google"] = {
-    "spec": {
-        "__type__": "kotaemon.embeddings.LCGoogleEmbeddings",
-        "model": "models/text-embedding-004",
-        "google_api_key": GOOGLE_API_KEY,
-    },
-    "default": not IS_OPENAI_DEFAULT,
-}
-KH_EMBEDDINGS["mistral"] = {
-    "spec": {
-        "__type__": "kotaemon.embeddings.LCMistralEmbeddings",
-        "model": "mistral-embed",
-        "api_key": config("MISTRAL_API_KEY", default="your-key"),
-    },
-    "default": False,
-}
-# KH_EMBEDDINGS["huggingface"] = {
-#     "spec": {
-#         "__type__": "kotaemon.embeddings.LCHuggingFaceEmbeddings",
-#         "model_name": "sentence-transformers/all-mpnet-base-v2",
-#     },
-#     "default": False,
-# }
 
 # default reranking models
 KH_RERANKINGS["cohere"] = {
@@ -353,39 +263,8 @@ SETTINGS_REASONING = {
     },
 }
 
-USE_GLOBAL_GRAPHRAG = config("USE_GLOBAL_GRAPHRAG", default=True, cast=bool)
-USE_NANO_GRAPHRAG = config("USE_NANO_GRAPHRAG", default=False, cast=bool)
-USE_LIGHTRAG = config("USE_LIGHTRAG", default=True, cast=bool)
-USE_MS_GRAPHRAG = config("USE_MS_GRAPHRAG", default=True, cast=bool)
-
-GRAPHRAG_INDEX_TYPES = []
-
-if USE_MS_GRAPHRAG:
-    GRAPHRAG_INDEX_TYPES.append("ktem.index.file.graph.GraphRAGIndex")
-if USE_NANO_GRAPHRAG:
-    GRAPHRAG_INDEX_TYPES.append("ktem.index.file.graph.NanoGraphRAGIndex")
-if USE_LIGHTRAG:
-    GRAPHRAG_INDEX_TYPES.append("ktem.index.file.graph.LightRAGIndex")
-
 KH_INDEX_TYPES = [
     "ktem.index.file.FileIndex",
-    *GRAPHRAG_INDEX_TYPES,
-]
-
-GRAPHRAG_INDICES = [
-    {
-        "name": graph_type.split(".")[-1].replace("Index", "")
-        + " Collection",  # get last name
-        "config": {
-            "supported_file_types": (
-                ".png, .jpeg, .jpg, .tiff, .tif, .pdf, .xls, .xlsx, .doc, .docx, "
-                ".pptx, .csv, .html, .mhtml, .txt, .md, .zip"
-            ),
-            "private": True,
-        },
-        "index_type": graph_type,
-    }
-    for graph_type in GRAPHRAG_INDEX_TYPES
 ]
 
 KH_INDICES = [
@@ -400,5 +279,4 @@ KH_INDICES = [
         },
         "index_type": "ktem.index.file.FileIndex",
     },
-    *GRAPHRAG_INDICES,
 ]
