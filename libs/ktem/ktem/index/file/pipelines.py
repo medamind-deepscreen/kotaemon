@@ -783,6 +783,7 @@ class IndexDocumentPipeline(BaseFileIndexIndexing):
     ) -> Generator[
         Document, None, tuple[list[str | None], list[str | None], list[Document]]
     ]:
+        print(f'Harshit IndexDocumentPipeline stream: {file_paths}')
         """Return a list of indexed file ids, and a list of errors"""
         if not isinstance(file_paths, list):
             file_paths = [file_paths]

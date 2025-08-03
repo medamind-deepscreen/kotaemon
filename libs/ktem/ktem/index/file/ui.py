@@ -1101,6 +1101,7 @@ class FileIndexPage(BasePage):
             selected_files: the list of files already selected
             settings: the settings of the app
         """
+        print(f'Harshit index_fn: {files}')
         if urls:
             files = [it.strip() for it in urls.split("\n")]
             errors = self.validate_urls(files)

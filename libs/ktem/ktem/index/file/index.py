@@ -439,7 +439,7 @@ class FileIndex(BaseIndex):
 
     def get_indexing_pipeline(self, settings, user_id) -> BaseFileIndexIndexing:
         """Define the interface of the indexing pipeline"""
-
+        print(f'Harshit get_indexing_pipeline settings: {settings}')
         prefix = f"index.options.{self.id}."
         stripped_settings = {}
         for key, value in settings.items():
