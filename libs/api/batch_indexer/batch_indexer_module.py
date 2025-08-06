@@ -10,7 +10,10 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from ktem.app import BaseApp
+from ktem.db.engine import engine
 from ktem.utils.generator import Generator as GeneratorWrapper
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 
 class BatchIndexerModule:
@@ -22,19 +25,6 @@ class BatchIndexerModule:
         
         self.index_manager = self.app.index_manager
         self.logger = logging.getLogger(__name__)
-    
-    def list_indices(self) -> List[Dict[str, Any]]:
-        """
-        List all available indices
-        """
-        indices = []
-        for index in self.index_manager.indices:
-            indices.append({
-                "id": index.id,
-                "name": index.name,
-                "config": index.config
-            })
-        return indices
     
     def get_index(self, index_name: Optional[str] = None, index_id: Optional[int] = None):
         """
@@ -51,6 +41,7 @@ class BatchIndexerModule:
             for index in self.index_manager.indices:
                 if index.id == index_id:
                     return index
+        
         return None
     
     def get_supported_extensions(self, index) -> List[str]:
@@ -63,7 +54,6 @@ class BatchIndexerModule:
         """Get all files in the folder that match supported extensions"""
 
         files = []
-        print(f"Harshit folder_path: {folder_path}")
         if not folder_path.exists():
             raise FileNotFoundError(f"Folder {folder_path} does not exist")
         
@@ -188,16 +178,6 @@ class BatchIndexerModule:
         files = self.get_files_to_index(folder_path, supported_extensions)
         self.logger.info(f"Found {len(files)} files to index")
         
-        if not files:
-            return {
-                "success": True,
-                "indexed": 0,
-                "skipped": 0,
-                "errors": 0,
-                "total_files": 0,
-                "results": []
-            }
-        
         # Index files
         indexed_count = 0
         skipped_count = 0
@@ -236,6 +216,56 @@ class BatchIndexerModule:
             "results": results
         }
     
+    def get_files_for_user(self, user_id: str, index_name: Optional[str] = None, index_id: Optional[int] = None) -> list[dict]:
+        """
+        Retrieve files uploaded by a specific user.
+
+        Args:
+            user_id: The user ID whose files to retrieve.
+            index_name: Name of the index to use (optional).
+            index_id: ID of the index to use (optional).
+
+        Returns:
+            List of dictionaries with file information.
+        """
+        index = self.get_index(index_name, index_id)
+        if not index:
+            if index_name:
+                raise ValueError(f"Index with name '{index_name}' not found")
+            elif index_id:
+                raise ValueError(f"Index with ID {index_id} not found")
+            else:
+                raise ValueError("No index specified")
+
+        files = []
+        try:
+            with Session(engine) as session:
+                Source = index._resources["Source"]
+                # Try to filter by user_id if the column exists
+                if hasattr(Source, "user") and user_id:
+                    query = select(Source).where(Source.user == user_id)
+                else:
+                    # If user_id is not tracked, return all files (or empty)
+                    query = select(Source)
+                for row in session.execute(query):
+                    source = row[0]
+                    file_info = {
+                        "id": getattr(source, "id", None),
+                        "name": getattr(source, "name", None),
+                        "path": getattr(source, "path", None),
+                        "type": getattr(source, "type", None),
+                        "user": getattr(source, "user", None)
+                    }
+                    # Only include if user_id matches (if user_id column exists)
+                    if not hasattr(source, "user") or source.user == user_id:
+                        files.append(file_info)
+        except Exception as e:
+            self.logger.error(f"Error retrieving files for user {user_id}: {e}")
+            return []
+
+        return files
+    
+    
     def delete_file_from_index(self, file_path: Path, index_name: Optional[str] = None, 
                               index_id: Optional[int] = None, user_id: str = "default") -> Dict[str, Any]:
         """
@@ -250,7 +280,7 @@ class BatchIndexerModule:
         Returns:
             Dictionary with deletion result
         """
-        # Get the target index
+
         index = self.get_index(index_name, index_id)
         if not index:
             if index_name:
@@ -260,38 +290,71 @@ class BatchIndexerModule:
             else:
                 raise ValueError("No index specified")
         
-        # Get indexing pipeline
-        pipeline = index.get_indexing_pipeline({}, user_id)
-        
         try:
-            # For deletion, we need to get the actual pipeline to access get_id_if_exists
-            # and delete_file methods
-            if hasattr(pipeline, 'route'):
-                # This is an IndexDocumentPipeline, get the actual pipeline
-                actual_pipeline = pipeline.route(file_path)
-            else:
-                # This is already an IndexPipeline
-                actual_pipeline = pipeline
+            with Session(engine) as session:
+                Source = index._resources["Source"]
+                # Try to filter by user_id if the column exists
+                if hasattr(Source, "user") and user_id:
+                    query = select(Source).where(Source.user == user_id)
+                else:
+                    # If user_id is not tracked, return all files (or empty)
+                    query = select(Source)
+
+                sources = session.execute(query).all()
+
+                source = None
+
+                for s in sources:
+                    if s[0].name == file_path.name:
+                        source = s[0]
+                        break
+                
+                if not source:
+                    return {
+                        "success": False,
+                        "message": "File not found in index"
+                    }
+                
+                file_id = source.id
+                file_name = source.name
+                
+                # Delete the source record
+                session.delete(source)
+                
+                # Find and delete related index records
+                vs_ids, ds_ids = [], []
+                index_records = session.execute(
+                    select(index._resources["Index"]).where(
+                        index._resources["Index"].source_id == file_id
+                    )
+                ).all()
+                
+                for each in index_records:
+                    if each[0].relation_type == "vector":
+                        vs_ids.append(each[0].target_id)
+                    elif each[0].relation_type == "document":
+                        ds_ids.append(each[0].target_id)
+                    session.delete(each[0])
+                
+                session.commit()
             
-            # Check if file exists in index
-            existing_id = actual_pipeline.get_id_if_exists(str(file_path))
-            if not existing_id:
-                return {
-                    "success": False,
-                    "message": "File not found in index"
-                }
+            # Delete from vector store and document store
+            if vs_ids:
+                index._vs.delete(vs_ids)
+            index._docstore.delete(ds_ids)
             
-            # Delete the file
-            actual_pipeline.delete_file(existing_id)
+            self.logger.info(f"File {file_name} has been deleted from index")
             
             return {
                 "success": True,
-                "file_id": existing_id,
-                "message": "File deleted from index successfully"
+                "file_id": file_id,
+                "file_name": file_name,
+                "message": f"File {file_name} deleted from index successfully"
             }
             
         except Exception as e:
+            self.logger.error(f"Error deleting file {file_path}: {str(e)}")
             return {
                 "success": False,
-                "message": str(e)
+                "message": f"Error deleting file: {str(e)}"
             }
