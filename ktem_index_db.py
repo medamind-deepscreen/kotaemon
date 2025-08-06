@@ -2,7 +2,6 @@
 """Script to delete rows from ktem__index table based on provided IDs"""
 
 import sys
-import os
 import argparse
 
 # Add the project path to Python path
